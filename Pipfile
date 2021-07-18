@@ -11,3 +11,5 @@ wheel = "*"
 [packages]
 requests = "*"
 lxml = "*"
+yfinance = "*"
+pandas-datareader = "*"

@@ -3,8 +3,11 @@
 import datetime
 import urllib.parse
 from collections import namedtuple
+# from twstock.proxy import get_proxies
+import yfinance as yf
+import pandas as pd
+from pandas_datareader import data as PDReader
 
-from twstock.proxy import get_proxies
 
 try:
     from json.decoder import JSONDecodeError
@@ -45,107 +48,153 @@ class BaseFetcher(object):
         pass
 
 
-class TWSEFetcher(BaseFetcher):
-    REPORT_URL = urllib.parse.urljoin(
-        TWSE_BASE_URL, 'exchangeReport/STOCK_DAY')
+# class TWSEFetcher(BaseFetcher):
+#     REPORT_URL = urllib.parse.urljoin(
+#         TWSE_BASE_URL, 'exchangeReport/STOCK_DAY')
+
+#     def __init__(self):
+#         pass
+
+#     def fetch(self, year: int, month: int, sid: str, retry: int=5):
+#         params = {'date': '%d%02d01' % (year, month), 'stockNo': sid}
+#         for retry_i in range(retry):
+#             r = requests.get(self.REPORT_URL, params=params,
+#                              proxies=get_proxies())
+#             try:
+#                 data = r.json()
+#             except JSONDecodeError:
+#                 continue
+#             else:
+#                 break
+#         else:
+#             # Fail in all retries
+#             data = {'stat': '', 'data': []}
+
+#         if data['stat'] == 'OK':
+#             data['data'] = self.purify(data)
+#         else:
+#             data['data'] = []
+#         return data
+
+#     def _make_datatuple(self, data):
+#         data[0] = datetime.datetime.strptime(
+#             self._convert_date(data[0]), '%Y/%m/%d')
+#         data[1] = int(data[1].replace(',', ''))
+#         data[2] = int(data[2].replace(',', ''))
+#         data[3] = None if data[3] == '--' else float(data[3].replace(',', ''))
+#         data[4] = None if data[4] == '--' else float(data[4].replace(',', ''))
+#         data[5] = None if data[5] == '--' else float(data[5].replace(',', ''))
+#         data[6] = None if data[6] == '--' else float(data[6].replace(',', ''))
+#         # +/-/X表示漲/跌/不比價
+#         data[7] = float(0.0 if data[7].replace(',', '') ==
+#                         'X0.00' else data[7].replace(',', ''))
+#         data[8] = int(data[8].replace(',', ''))
+#         return DATATUPLE(*data)
+
+#     def purify(self, original_data):
+#         return [self._make_datatuple(d) for d in original_data['data']]
+
+
+# class TPEXFetcher(BaseFetcher):
+#     REPORT_URL = urllib.parse.urljoin(TPEX_BASE_URL,
+#                                       'web/stock/aftertrading/daily_trading_info/st43_result.php')
+
+#     def __init__(self):
+#         pass
+
+#     def fetch(self, year: int, month: int, sid: str, retry: int=5):
+#         params = {'d': '%d/%d' % (year - 1911, month), 'stkno': sid}
+#         for retry_i in range(retry):
+#             r = requests.get(self.REPORT_URL, params=params,
+#                              proxies=get_proxies())
+#             try:
+#                 data = r.json()
+#             except JSONDecodeError:
+#                 continue
+#             else:
+#                 break
+#         else:
+#             # Fail in all retries
+#             data = {'aaData': []}
+
+#         data['data'] = []
+#         if data['aaData']:
+#             data['data'] = self.purify(data)
+#         return data
+
+#     def _convert_date(self, date):
+#         """Convert '106/05/01' to '2017/05/01'"""
+#         return '/'.join([str(int(date.split('/')[0]) + 1911)] + date.split('/')[1:])
+
+#     def _make_datatuple(self, data):
+#         data[0] = datetime.datetime.strptime(self._convert_date(data[0].replace('＊', '')),
+#                                              '%Y/%m/%d')
+#         data[1] = int(data[1].replace(',', '')) * 1000
+#         data[2] = int(data[2].replace(',', '')) * 1000
+#         data[3] = None if data[3] == '--' else float(data[3].replace(',', ''))
+#         data[4] = None if data[4] == '--' else float(data[4].replace(',', ''))
+#         data[5] = None if data[5] == '--' else float(data[5].replace(',', ''))
+#         data[6] = None if data[6] == '--' else float(data[6].replace(',', ''))
+#         data[7] = float(data[7].replace(',', ''))
+#         data[8] = int(data[8].replace(',', ''))
+#         return DATATUPLE(*data)
+
+#     def purify(self, original_data):
+#         return [self._make_datatuple(d) for d in original_data['aaData']]
+
+
+class YahooFetcher(BaseFetcher):
 
     def __init__(self):
         pass
 
     def fetch(self, year: int, month: int, sid: str, retry: int=5):
-        params = {'date': '%d%02d01' % (year, month), 'stockNo': sid}
-        for retry_i in range(retry):
-            r = requests.get(self.REPORT_URL, params=params,
-                             proxies=get_proxies())
-            try:
-                data = r.json()
-            except JSONDecodeError:
-                continue
-            else:
-                break
-        else:
-            # Fail in all retries
-            data = {'stat': '', 'data': []}
+        yf.pdr_override() #以pandasreader常用的格式覆寫
 
-        if data['stat'] == 'OK':
-            data['data'] = self.purify(data)
-        else:
-            data['data'] = []
+        # 股票代號變數
+        sid = str(sid) + '.TW' 
+
+        now = datetime.datetime.now() 
+        start_date = "%d-%02d-01" % (year, month)
+        end_date = "%d-%02d-%02d" % (now.year, now.month, now.day)
+        df = PDReader.get_data_yahoo([sid], start_date, end_date) #將資料放到Dataframe裡面
+        
+        
+        csv_data = df.to_csv()
+        
+        csv_data_list = csv_data.split('\n')
+        data = {'stat': 'ok', 'aaData': csv_data_list[1:]}
+
+        data['data'] = self.purify(data)
         return data
 
     def _make_datatuple(self, data):
-        data[0] = datetime.datetime.strptime(
-            self._convert_date(data[0]), '%Y/%m/%d')
-        data[1] = int(data[1].replace(',', ''))
-        data[2] = int(data[2].replace(',', ''))
-        data[3] = None if data[3] == '--' else float(data[3].replace(',', ''))
-        data[4] = None if data[4] == '--' else float(data[4].replace(',', ''))
-        data[5] = None if data[5] == '--' else float(data[5].replace(',', ''))
-        data[6] = None if data[6] == '--' else float(data[6].replace(',', ''))
+        temp = [0,0,0,0,0,0,0,0,0]
+        items = data.split(',')
+
+        temp[0] = items[0].replace("-", "/") # 'date'
+        temp[1] = int(items[6]) # 'capacity'
+        temp[2] = int(0) # 'turnover'
+        temp[3] = round(float(items[1]), 2) # 'open',
+        temp[4] = round(float(items[2]), 3) # 'high'
+        temp[5] = round(float(items[3]), 4) # 'low'
+        temp[6] = round(float(items[4]), 5) # 'close'
         # +/-/X表示漲/跌/不比價
-        data[7] = float(0.0 if data[7].replace(',', '') ==
-                        'X0.00' else data[7].replace(',', ''))
-        data[8] = int(data[8].replace(',', ''))
-        return DATATUPLE(*data)
+        temp[7] = float(0.0)   #'change'
+        temp[8] = int(0)  # 'transaction'
+        return DATATUPLE(*temp)
 
     def purify(self, original_data):
-        return [self._make_datatuple(d) for d in original_data['data']]
-
-
-class TPEXFetcher(BaseFetcher):
-    REPORT_URL = urllib.parse.urljoin(TPEX_BASE_URL,
-                                      'web/stock/aftertrading/daily_trading_info/st43_result.php')
-
-    def __init__(self):
-        pass
-
-    def fetch(self, year: int, month: int, sid: str, retry: int=5):
-        params = {'d': '%d/%d' % (year - 1911, month), 'stkno': sid}
-        for retry_i in range(retry):
-            r = requests.get(self.REPORT_URL, params=params,
-                             proxies=get_proxies())
-            try:
-                data = r.json()
-            except JSONDecodeError:
-                continue
-            else:
-                break
-        else:
-            # Fail in all retries
-            data = {'aaData': []}
-
-        data['data'] = []
-        if data['aaData']:
-            data['data'] = self.purify(data)
-        return data
-
-    def _convert_date(self, date):
-        """Convert '106/05/01' to '2017/05/01'"""
-        return '/'.join([str(int(date.split('/')[0]) + 1911)] + date.split('/')[1:])
-
-    def _make_datatuple(self, data):
-        data[0] = datetime.datetime.strptime(self._convert_date(data[0].replace('＊', '')),
-                                             '%Y/%m/%d')
-        data[1] = int(data[1].replace(',', '')) * 1000
-        data[2] = int(data[2].replace(',', '')) * 1000
-        data[3] = None if data[3] == '--' else float(data[3].replace(',', ''))
-        data[4] = None if data[4] == '--' else float(data[4].replace(',', ''))
-        data[5] = None if data[5] == '--' else float(data[5].replace(',', ''))
-        data[6] = None if data[6] == '--' else float(data[6].replace(',', ''))
-        data[7] = float(data[7].replace(',', ''))
-        data[8] = int(data[8].replace(',', ''))
-        return DATATUPLE(*data)
-
-    def purify(self, original_data):
-        return [self._make_datatuple(d) for d in original_data['aaData']]
+        return [self._make_datatuple(d) for d in original_data['aaData'] if len(d) > 0 ]
 
 
 class Stock(analytics.Analytics):
 
     def __init__(self, sid: str, initial_fetch: bool=True):
         self.sid = sid
-        self.fetcher = TWSEFetcher(
-        ) if codes[sid].market == '上市' else TPEXFetcher()
+        # self.fetcher = TWSEFetcher(
+        # ) if codes[sid].market == '上市' else TPEXFetcher()
+        self.fetcher = YahooFetcher()
         self.raw_data = []
         self.data = []
 

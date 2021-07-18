@@ -11,15 +11,18 @@ Status](https://travis-ci.org/mlouielu/twstock.svg?branch=master)](https://travi
 twstock 台灣股市股票價格擷取
 ----------------------------
 
-擷取台灣證券交易所之股價資料
-重新製作 toomore/grs 之功能
+擷取 Yahoo Finance 之股價資料
+重新製作 mlouielu/twstock 之功能
 
 資料來源:
 
-* [證券交易所 (TWSE)](http://www.twse.com.tw)
-* [證券櫃台買賣中心 (TPEX)](http://www.tpex.org.tw)
+* ~~[證券交易所 (TWSE)](http://www.twse.com.tw)~~
+* ~~[證券櫃台買賣中心 (TPEX)](http://www.tpex.org.tw)~~
+~~(請注意，TWSE 有 request limit, 每 5 秒鐘 3 個 request，超過的話會被 ban 掉，請自行注意)~~
 
-(請注意，TWSE 有 request limit, 每 5 秒鐘 3 個 request，超過的話會被 ban 掉，請自行注意)
+* [Yahoo Finance](https://tw.finance.yahoo.com/)
+(請注意，目前僅供查詢台股，請自行注意)
+
 
 ## Documentation
 
@@ -30,6 +33,9 @@ twstock 台灣股市股票價格擷取
 * Python 3
 * lxml
 * requests
+* yfinance
+* pandas_datareader
+
 
 ## Install
 
